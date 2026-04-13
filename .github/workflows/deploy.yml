@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build Docker Image
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -57,30 +57,12 @@ jobs:
             ghcr.io/${{ github.repository }}/memos:latest
             ghcr.io/${{ github.repository }}/memos:${{ github.sha }}
 
-      - name: Deploy to server
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+      - name: Display image URL
         run: |
-          echo "Deploying to $SERVER_HOST"
-          which ssh-agent || apt-get update && apt-get install -y openssh-client
-          eval $(ssh-agent -s)
-          echo "$SERVER_SSH_KEY" | tr -d '\r' | SSH_ASKPASS="" ssh-add -
-          mkdir -p ~/.ssh
-          ssh-keyscan -H $SERVER_HOST >> ~/.ssh/known_hosts 2>/dev/null
-          ssh -o StrictHostKeyChecking=no -p ${SERVER_PORT:-22} $SERVER_USER@$SERVER_HOST '
-            set -e
-            if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              curl -fsSL https://get.docker.com | sh
-              systemctl enable docker
-              systemctl start docker
-            fi
-            echo "$GITHUB_TOKEN" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-            docker stop memos 2>/dev/null || true
-            docker rm memos 2>/dev/null || true
-            docker run -d --name memos --restart unless-stopped -p 5230:5230 -v /opt/memos/data:/var/opt/memos ghcr.io/${{ github.repository }}/memos:latest
-            echo "Done!"
-          '
+          echo "Docker image built successfully!"
+          echo "Image: ghcr.io/${{ github.repository }}/memos:latest"
+          echo ""
+          echo "To deploy on your server, run:"
+          echo "docker pull ghcr.io/${{ github.repository }}/memos:latest"
+          echo "docker stop memos 2>/dev/null; docker rm memos 2>/dev/null"
+          echo "docker run -d --name memos -p 5230:5230 -v /opt/memos/data:/var/opt/memos ghcr.io/${{ github.repository }}/memos:latest"
