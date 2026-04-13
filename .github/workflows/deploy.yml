@@ -58,32 +58,29 @@ jobs:
             ghcr.io/${{ github.repository }}/memos:${{ github.sha }}
 
       - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ vars.SERVER_HOST }}
-          username: ${{ vars.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ vars.SERVER_PORT || 22 }}
-          script: |
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+        run: |
+          echo "Deploying to $SERVER_HOST"
+          which ssh-agent || apt-get update && apt-get install -y openssh-client
+          eval $(ssh-agent -s)
+          echo "$SERVER_SSH_KEY" | tr -d '\r' | SSH_ASKPASS="" ssh-add -
+          mkdir -p ~/.ssh
+          ssh-keyscan -H $SERVER_HOST >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -o StrictHostKeyChecking=no -p ${SERVER_PORT:-22} $SERVER_USER@$SERVER_HOST '
             set -e
-
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               curl -fsSL https://get.docker.com | sh
               systemctl enable docker
               systemctl start docker
             fi
-
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
+            echo "$GITHUB_TOKEN" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
             docker stop memos 2>/dev/null || true
             docker rm memos 2>/dev/null || true
-
-            docker run -d \
-              --name memos \
-              --restart unless-stopped \
-              -p 5230:5230 \
-              -v /opt/memos/data:/var/opt/memos \
-              ghcr.io/${{ github.repository }}/memos:latest
-
-            echo "Deployment complete!"
+            docker run -d --name memos --restart unless-stopped -p 5230:5230 -v /opt/memos/data:/var/opt/memos ghcr.io/${{ github.repository }}/memos:latest
+            echo "Done!"
+          '
