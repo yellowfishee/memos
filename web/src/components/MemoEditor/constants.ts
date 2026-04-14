@@ -10,5 +10,5 @@ export const FOCUS_MODE_STYLES = {
 
 export const EDITOR_HEIGHT = {
   // Max height for normal mode - focus mode uses flex-1 to grow dynamically
-  normal: "max-h-[50vh]",
+  normal: "max-h-[70vh]",
 } as const;
