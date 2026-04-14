@@ -15,11 +15,16 @@ interface Props {
   expandSubTags: boolean;
 }
 
+const aggregateAmount = (tag: Tag): number => {
+  if (tag.subTags.length === 0) return tag.amount;
+  return tag.subTags.reduce((sum, child) => sum + aggregateAmount(child), 0);
+};
+
 const TagTree = ({ tagAmounts: rawTagAmounts, expandSubTags }: Props) => {
   const [tags, setTags] = useState<Tag[]>([]);
 
   useEffect(() => {
-    const sortedTagAmounts = Array.from(rawTagAmounts).sort();
+    const tagAmountMap = new Map(rawTagAmounts);
     const root: Tag = {
       key: "",
       text: "",
@@ -27,38 +32,24 @@ const TagTree = ({ tagAmounts: rawTagAmounts, expandSubTags }: Props) => {
       subTags: [],
     };
 
-    for (const tagAmount of sortedTagAmounts) {
-      const subtags = tagAmount[0].split("/");
+    const sortedTags = Array.from(tagAmountMap.keys()).sort();
+
+    for (const fullTag of sortedTags) {
+      const segments = fullTag.split("/");
       let tempObj = root;
       let tagText = "";
 
-      for (let i = 0; i < subtags.length; i++) {
-        const key = subtags[i];
-        let amount: number = 0;
+      for (let i = 0; i < segments.length; i++) {
+        const key = segments[i];
+        tagText = i === 0 ? key : tagText + "/" + key;
 
-        if (i === 0) {
-          tagText += key;
-        } else {
-          tagText += "/" + key;
-        }
-        if (sortedTagAmounts.some(([tag, amount]) => tag === tagText && amount > 1)) {
-          amount = tagAmount[1];
-        }
-
-        let obj = null;
-
-        for (const t of tempObj.subTags) {
-          if (t.text === tagText) {
-            obj = t;
-            break;
-          }
-        }
+        let obj = tempObj.subTags.find((t) => t.text === tagText);
 
         if (!obj) {
           obj = {
             key,
             text: tagText,
-            amount: amount,
+            amount: tagAmountMap.get(tagText) || 0,
             subTags: [],
           };
           tempObj.subTags.push(obj);
@@ -68,7 +59,17 @@ const TagTree = ({ tagAmounts: rawTagAmounts, expandSubTags }: Props) => {
       }
     }
 
-    setTags(root.subTags as Tag[]);
+    const enrichAmounts = (tagList: Tag[]): Tag[] => {
+      for (const tag of tagList) {
+        if (tag.subTags.length > 0) {
+          enrichAmounts(tag.subTags);
+          tag.amount = aggregateAmount(tag);
+        }
+      }
+      return tagList;
+    };
+
+    setTags(enrichAmounts(root.subTags));
   }, [rawTagAmounts]);
 
   return (
@@ -126,7 +127,7 @@ const TagItemContainer = (props: TagItemContainerProps) => {
         >
           <HashIcon className="w-4 h-auto shrink-0 mr-1" />
           <span className={`truncate hover:opacity-80 ${isActive ? "font-medium" : ""}`}>
-            {tag.key} {tag.amount > 1 && <span className="opacity-60">({tag.amount})</span>}
+            {tag.key} <span className="opacity-60">({tag.amount})</span>
           </span>
         </div>
         <div className="flex flex-row justify-end items-center">

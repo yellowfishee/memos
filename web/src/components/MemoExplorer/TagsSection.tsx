@@ -15,8 +15,8 @@ interface Props {
 const TagsSection = (props: Props) => {
   const t = useTranslate();
   const { getFiltersByFactor, addFilter, removeFilter } = useMemoFilterContext();
-  const [treeMode, setTreeMode] = useLocalStorage<boolean>("tag-view-as-tree", false);
-  const [treeAutoExpand, setTreeAutoExpand] = useLocalStorage<boolean>("tag-tree-auto-expand", false);
+  const [treeMode, setTreeMode] = useLocalStorage<boolean>("tag-view-as-tree", true);
+  const [treeAutoExpand, setTreeAutoExpand] = useLocalStorage<boolean>("tag-tree-auto-expand", true);
 
   const tags = Object.entries(props.tagCount)
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -78,7 +78,7 @@ const TagsSection = (props: Props) => {
                   <HashIcon className="w-4 h-auto shrink-0" />
                   <div className="inline-flex flex-nowrap ml-0.5 gap-0.5 max-w-[calc(100%-16px)]">
                     <span className={cn("truncate", isActive ? "font-medium" : "")}>{tag}</span>
-                    {amount > 1 && <span className="opacity-60 shrink-0">({amount})</span>}
+                    {amount > 0 && <span className="opacity-60 shrink-0">({amount})</span>}
                   </div>
                 </div>
               );
